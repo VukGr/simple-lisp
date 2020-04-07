@@ -1,3 +1,9 @@
+obj/*.*
+bin/*.*
+
+# VSCode files
+.vscode/*.*
+
 # Prerequisites
 *.d
 
