@@ -27,14 +27,12 @@ LVal *leval(LContext *context) {
 
 //Macro
 //Sets the id from arg 0 to the value from arg 1
-//IMPROVE: Type check the arg 0
 LVal *lset(LContext *context) {
-	char *id = lookup("local_0", context)->Str;
+	char *id = LVal_AssumeType(TYPE_IDENTIFIER, lookup("local_0", context))->Str;
 	LVal *val = Eval(LFun_ConvertArg(lookup("local_1", context)), context);
 
 	//Prev since adding to lset's context makes no sense
-	Context_AddVar(context->Prev, 
-		LVar_New(id, val));
+	Context_AddVar(context->Prev, LVar_New(id, val));
 
 	return &Nil;
 }
@@ -61,10 +59,9 @@ LVal *ldo(LContext *context) {
 	return res;
 }
 
-//TODO: Typecheck
 LVal *lfun(LContext *context) {
-	LVal *args = lookup("local_0", context);
-	LVal *expr = LFun_ConvertArg(lookup("local_1", context));
+	LVal *args = LVal_AssumeType(TYPE_LIST, lookup("local_0", context));
+	LVal *expr = LFun_ConvertArg(LVal_AssumeType(TYPE_LIST, lookup("local_1", context)));
 	int argc = LList_Len(args);
 
 	return LFun_New(expr, args, argc, false);;
@@ -73,33 +70,45 @@ LVal *lfun(LContext *context) {
 //This evals right to left, but oh well
 //Or it doesn't, since they're eval-ed before passing to this?
 LVal *lplus(LContext *context) {
-	LVal *sum = LNum_New(0);
+	LVal *res = LNum_New(0);
 	
 	for(LVar *arg = context->Top; arg != NULL; arg = arg->Next) {
-		*(sum->Num) += *(arg->Value->Num);
+		*(res->Num) += *(LVal_AssumeType(TYPE_NUMBER, arg->Value)->Num);
 	}
 
-	return sum;
+	return res;
 }
 
 LVal *lminus(LContext *context) {
-	LVal *sum = LNum_New(0);
+	LVal *firstVal = LVal_AssumeType(TYPE_NUMBER, lookup("local_0", context));
+
+	if(context->Top->Value == firstVal)
+		return LNum_New(-(*(firstVal->Num)));
 	
-	for(LVar *arg = context->Top; arg != NULL; arg = arg->Next) {
-		*(sum->Num) -= *(arg->Value->Num);
+	LVal *res = LNum_New(*(firstVal->Num));
+
+	for(LVar *arg = context->Top; arg->Next != NULL; arg = arg->Next) {
+		*(res->Num) -= *(LVal_AssumeType(TYPE_NUMBER, arg->Value)->Num);
 	}
 
-	return sum;
+	return res;
 }
 
 LVal *lmul(LContext *context) {
-	LVal *prod = LNum_New(1);
+	LVal *res = LNum_New(1);
 	
 	for(LVar *arg = context->Top; arg != NULL; arg = arg->Next) {
-		*(prod->Num) *= *(arg->Value->Num);
+		*(res->Num) *= *(LVal_AssumeType(TYPE_NUMBER, arg->Value)->Num);
 	}
 
-	return prod;
+	return res;
+}
+
+LVal *_ldiv(LContext *context) {
+	LVal *arg1 = LVal_AssumeType(TYPE_NUMBER, lookup("local_0", context));
+	LVal *arg2 = LVal_AssumeType(TYPE_NUMBER, lookup("local_1", context));
+	
+	return LNum_New(*(arg1->Num) / *(arg2->Num));
 }
 
 LVal *ltick(LContext *context) {
@@ -108,7 +117,7 @@ LVal *ltick(LContext *context) {
 	return arg;
 }
 
-//TODO: Negative numbers
+//TODO: Proper cons support
 //TODO: Free-ing almost anything 
 //TODO: Defining macros from lisp
 //TODO: Proper closures (lexical scoping)
@@ -116,7 +125,7 @@ LVal *ltick(LContext *context) {
 //TODO: Standard library
 
 int main() {
-	char *src = read_whole_file("./bin/src.lisp");
+	char *src = read_whole_file("./src.lisp");
 	p = src;
 	lineStart = p;
 	printf("Src:\n%s\n---\n", src);
@@ -131,6 +140,7 @@ int main() {
 	Context_AddVar(base, LVar_New("+", LBuiltin_New(&lplus, VARIABLE_FUNCTION, LFUN_FUNCTION))); 
 	Context_AddVar(base, LVar_New("-", LBuiltin_New(&lminus, VARIABLE_FUNCTION, LFUN_FUNCTION))); 
 	Context_AddVar(base, LVar_New("*", LBuiltin_New(&lmul, VARIABLE_FUNCTION, LFUN_FUNCTION))); 
+	Context_AddVar(base, LVar_New("/", LBuiltin_New(&_ldiv, 2, LFUN_FUNCTION))); 
 	Context_AddVar(base, LVar_New("tick", LBuiltin_New(&ltick, 1, LFUN_MACRO))); 
 
 	//while(next()) {

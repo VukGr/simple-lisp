@@ -16,6 +16,22 @@ LVal *LVal_New(valType type) {
 	val->RefCount = 0;
 }
 
+LVal *LVal_AssumeType(valType type, LVal *val) {
+	if(val == NULL) {
+		printf("Error: Assumed type %c (%d), got NULL ptr.\n", type);
+		exit(1);
+	}
+
+	if(type != val->Type) {
+		printf("Error: Assumed type %c (%d), got %c (%d). (Value: ", type, type, val->Type, val->Type);
+		Print(val);
+		printf(")\n");
+		exit(1);
+	}
+
+	return val;
+}
+
 //This might be freeing too much in case of lists
 //Since they can be made from other lists (by reference)
 //Should probably check for reference count
@@ -119,8 +135,7 @@ int LList_Len(LVal *val) {
 }
 
 LVal *LBuiltin_New(LBuiltinFun f, int argc, bool macro) {
-	LVal *val = malloc(sizeof(LVal));
-	val->Type = TYPE_BUILTINFUNCTION;
+	LVal *val = LVal_New(TYPE_BUILTINFUNCTION);
 
 	val->Fun = malloc(sizeof(LFun));
 	val->Fun->FunPtr = f;
@@ -131,12 +146,11 @@ LVal *LBuiltin_New(LBuiltinFun f, int argc, bool macro) {
 }
 
 LVal *LFun_New(LVal *expr, LVal *argv, int argc, bool macro) {
-	LVal *val = malloc(sizeof(LVal));
-	val->Type = TYPE_FUNCTION;
+	LVal *val = LVal_New(TYPE_FUNCTION);
 
 	val->Fun = malloc(sizeof(LFun));
-	val->Fun->Expr = expr;
-	val->Fun->Argv = argv; 
+	val->Fun->Expr = LVal_AssumeType(TYPE_EXPR, expr);
+	val->Fun->Argv = LVal_AssumeType(TYPE_LIST, argv); 
 	val->Fun->Argc = argc;
 	val->Fun->IsMacro = macro;
 
@@ -192,7 +206,6 @@ LContext *Context_New(LContext *old) {
 	return c;
 }
 
-//IMPROVE: Duplicate checking! (is it necessary tho? they just mask the previous one.)
 void Context_AddVar(LContext *c, LVar *var) {
 	if(c->Top != NULL) {
 		var->Next = c->Top;
@@ -200,10 +213,10 @@ void Context_AddVar(LContext *c, LVar *var) {
 	c->Top = var;
 }
 
-//TODO: Probably a good idea to refactor this at some point 
-//      Though it's questionable how much can be refactored 
-//      since it's mostly edge case handling that can't go 
-//      into Read
+//TODO: Probably a good idea to refactor this at some point \
+        Though it's questionable how much can be refactored \
+        since it's mostly edge case handling that can't go  \
+        into Read
 LVal *Read_List() {
 	LVal *this;
 
@@ -245,25 +258,23 @@ LVal *Read() {
 	if(next()) {
 		//This probably shouldn't be hardcoded
 		// 'X -> (tick X)
-		if(tkType == '\'') {
+		switch(tkType) {
+		case TKN_TICK:
 			this = LExpr_New(LId_New("tick"), LExpr_New(Read(), &Nil));
-		}
-		else if(tkType == '(') {
+			break;
+		case TKN_OPENP: 
 			this = Read_List();
-		}
-		else if(tkType == TKN_NUMBER) {
-			this = malloc(sizeof(LVal));
-			this->Type = TKN_NUMBER; 
-			this->Num = malloc(sizeof(int));  //IMPROVE: change this to double, eventually
-			*(this->Num) = atoi(tkVal); 
+			break;
+		case TKN_NUMBER:
+			this = LNum_New(atoi(tkVal));
 			free(tkVal);
-		}
-		else if(tkType == TKN_IDENTIFIER || tkType == TKN_STRING) {
-			this = malloc(sizeof(LVal));
-			this->Type = tkType; //FIX: this is prolly bad practice, use the proper enum.
-			this->Str = tkVal;
-		}
-		else {
+			break;
+		case TKN_STRING:
+		case TKN_IDENTIFIER:
+			this = LVal_New(tkType); //FIX: this is prolly bad practice, use the proper enum.
+			this->Str = tkVal; //Not using LId/LStr_New since there's no point to malloc-ing a new str
+			break;
+		default:
 			printf("Error at Line %d, Pos %d: Unexpected token %c (%d).\n", lineCount, p - lineStart, tkType, tkType);
 			exit(1);
 		}
@@ -313,7 +324,7 @@ void Print(LVal *val) {
 	}
 }
 
-//IMPROVE: Make an error function?
+//TODO: Make an error function?
 LVal *fcall(LVal *fun, LVal *args, LContext *context) {
 	if(fun->Type != TYPE_FUNCTION && fun->Type != TYPE_BUILTINFUNCTION) {
 		printf("Error: Attempt to call ");

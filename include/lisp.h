@@ -66,6 +66,7 @@ void Print(LVal *val);
 LVal *Eval(LVal *val, LContext *context);
 
 LVal *LVal_New(valType type);
+LVal *LVal_AssumeType(valType type, LVal *val);
 void LVal_Free(LVal *val);
 
 LVal *LId_New(char *id);
