@@ -45,7 +45,8 @@ static int next_string() {
 		;
 
 	if(*p == '\0') {
-		printf("Error at Line %d, Pos %d: Unexpected file end while parsing string.\n", lineCount, p - lineStart);
+		//TODO: Replace these with proper error functions
+		printf("\nError at Line %d, Pos %d: Unexpected file end while parsing string.\n", lineCount, p - lineStart);
 		return 0;
 	}
 
@@ -79,14 +80,14 @@ int next() {
 	else if(*p == '"') return next_string();
 	else if(*p == '\0') return 0;
 
-	printf("Error at Line %d, Pos %d: Unexpected character %c while parsing tokens.\n", lineCount, p - lineStart, *p);
+	printf("\nError at Line %d, Pos %d: Unexpected character %c while parsing tokens.\n", lineCount, p - lineStart, *p);
 	return 0;
 }
 
 int expect(TokenType expected) {
 	int ret = next();
 	if(tkType != expected) {
-		printf("Error at Line %d, Pos %d: Unexpected token %c, expected %c.\n", lineCount, p - lineStart, tkType, expected);
+		printf("\nError at Line %d, Pos %d: Unexpected token %c, expected %c.\n", lineCount, p - lineStart, tkType, expected);
 		exit(1);
 	}
 	return ret;

@@ -67,8 +67,6 @@ LVal *lfun(LContext *context) {
 	return LFun_New(expr, args, argc, false);;
 }
 
-//This evals right to left, but oh well
-//Or it doesn't, since they're eval-ed before passing to this?
 LVal *lplus(LContext *context) {
 	LVal *res = LNum_New(0);
 	
@@ -117,7 +115,27 @@ LVal *ltick(LContext *context) {
 	return arg;
 }
 
-//TODO: Proper cons support
+LVal *lcons(LContext *context) {
+	LVal *car = lookup("local_0", context);
+	LVal *cdr = lookup("local_1", context);
+
+	return LList_New(car, cdr);
+}
+
+LVal *lcar(LContext *context) {
+	LVal *arg = context->Top->Value;
+	if(arg->Type == TYPE_NIL) return &Nil;
+	else return LVal_AssumeType(TYPE_LIST, arg)->List->CAR;
+}
+
+
+LVal *lcdr(LContext *context) {
+	LVal *arg = context->Top->Value;
+	if(arg->Type == TYPE_NIL) return &Nil;
+	else return LVal_AssumeType(TYPE_LIST, arg)->List->CDR;
+}
+
+//TODO: Change read to work with strings or (file?)streams
 //TODO: Free-ing almost anything 
 //TODO: Defining macros from lisp
 //TODO: Proper closures (lexical scoping)
@@ -128,7 +146,6 @@ int main() {
 	char *src = read_whole_file("./src.lisp");
 	p = src;
 	lineStart = p;
-	printf("Src:\n%s\n---\n", src);
 
 	LContext *base = Context_New(NULL);
 	Context_AddVar(base, LVar_New("read", LBuiltin_New(&lread, 1, LFUN_FUNCTION))); //Probably not smart to call this one for now
@@ -142,12 +159,9 @@ int main() {
 	Context_AddVar(base, LVar_New("*", LBuiltin_New(&lmul, VARIABLE_FUNCTION, LFUN_FUNCTION))); 
 	Context_AddVar(base, LVar_New("/", LBuiltin_New(&_ldiv, 2, LFUN_FUNCTION))); 
 	Context_AddVar(base, LVar_New("tick", LBuiltin_New(&ltick, 1, LFUN_MACRO))); 
-
-	//while(next()) {
-		//printf("tkType: %c ", tkType);
-		//if(tkType != '(' && tkType != ')') printf("tkVal: %s", tkVal);
-		//printf("\n");
-	//}
+	Context_AddVar(base, LVar_New("cons", LBuiltin_New(&lcons, 2, LFUN_FUNCTION))); 
+	Context_AddVar(base, LVar_New("car", LBuiltin_New(&lcar, 1, LFUN_FUNCTION)));
+	Context_AddVar(base, LVar_New("cdr", LBuiltin_New(&lcdr, 1, LFUN_FUNCTION)));
 
 	LVal *val;
 	while(val = Read())
